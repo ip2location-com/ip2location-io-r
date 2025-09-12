@@ -1,5 +1,5 @@
 # RStudio files
-.Rproj
+*.Rproj
 .Rproj.user/
 .Rhistory
 .RData
