@@ -1,7 +1,7 @@
 Package: ip2locationio
 Type: Package
 Title: Lookup Geolocation and Proxy Information using 'IP2Location.io' API
-Version: 1.1.0
+Version: 1.1.1
 Authors@R: person(family = "IP2Location.io",
                     role = c("aut", "cre"),
                     email = "support@ip2location.io")

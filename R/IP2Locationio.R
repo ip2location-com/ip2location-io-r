@@ -1,3 +1,5 @@
+.ip2locationio_env <- new.env(parent = emptyenv())
+
 #' @title Set IP2Location.io API key
 #'
 #' @description Set IP2Location.io API key for lookup. Free API key can be obtained from <https://www.ip2location.io/sign-up?ref=1/>
@@ -11,9 +13,23 @@
 #'
 
 setApiKey <- function(api_key) {
-  py_run_string("import ip2locationio")
-  apikeyString = paste("configuration = ip2locationio.Configuration('", api_key , "')", sep = "")
-  py_run_string(apikeyString)
+  .ip2locationio_env$ip2locationio <- reticulate::import("ip2locationio")
+  .ip2locationio_env$configuration <- .ip2locationio_env$ip2locationio$Configuration(api_key)
+}
+
+#' @title Get the current IP2Location.io configuration
+#'
+#' @description Retrieve the Python configuration object created by \code{setApiKey()}. Internal helper used by the lookup functions to ensure an API key has been set before making a request.
+#' @return Return the Python configuration object used for API calls
+#' @keywords internal
+#' @noRd
+#'
+
+.getConfiguration <- function() {
+  if (is.null(.ip2locationio_env$configuration)) {
+    stop("API key not set. Please call setApiKey() first.")
+  }
+  .ip2locationio_env$configuration
 }
 
 #' @title Lookup for IP address geolocation and proxy information
@@ -30,12 +46,10 @@ setApiKey <- function(api_key) {
 #'
 
 lookup <- function(ip){
-  py_run_string("import json")
-  py_run_string("ipgeolocation = ip2locationio.IPGeolocation(configuration)")
-  address = paste("rec = ipgeolocation.lookup('", ip, "')", sep = "")
-  py_run_string(address)
-  py_run_string("j = json.dumps(rec)")
-  result = fromJSON(py$j)
+  configuration <- .getConfiguration()
+  ipgeolocation <- .ip2locationio_env$ip2locationio$IPGeolocation(configuration)
+  rec <- ipgeolocation$lookup(ip)
+  result <- reticulate::py_to_r(rec)
   return(result)
 }
 
@@ -54,17 +68,16 @@ lookup <- function(ip){
 #'
 
 lookupHostedDomain <- function(ip, page){
-  py_run_string("import json")
-  py_run_string("hosteddomain = ip2locationio.HostedDomain(configuration)")
-  if(missing(page)) {
-    address = paste("rec = hosteddomain.lookup('", ip, "')", sep = "")
+  configuration <- .getConfiguration()
+  hosteddomain <- .ip2locationio_env$ip2locationio$HostedDomain(configuration)
+
+  if (missing(page)) {
+    rec <- hosteddomain$lookup(ip)
   } else {
-    address = paste("rec = hosteddomain.lookup('", ip, "','", page, "')", sep = "")
+    rec <- hosteddomain$lookup(ip, page)
   }
 
-  py_run_string(address)
-  py_run_string("j = json.dumps(rec)")
-  result = fromJSON(py$j)
+  result <- reticulate::py_to_r(rec)
   return(result)
 }
 
@@ -82,12 +95,8 @@ lookupHostedDomain <- function(ip, page){
 #'
 
 lookupCountryByIP <- function(ip){
-  py_run_string("ipgeolocation = ip2locationio.IPGeolocation(configuration)")
-  address = paste("rec = ipgeolocation.lookup('", ip, "')", sep = "")
-  py_run_string(address)
-  py_run_string("country_name = rec['country_name']")
-  result_from_python <- py$country_name
-  return(result_from_python)
+  rec <- lookup(ip)
+  return(rec$country_name)
 }
 
 #' @title Lookup an IP address's coordinate
@@ -103,12 +112,9 @@ lookupCountryByIP <- function(ip){
 #'
 
 lookupCoordinateByIP <- function(ip){
-  py_run_string("ipgeolocation = ip2locationio.IPGeolocation(configuration)")
-  address = paste("rec = ipgeolocation.lookup('", ip, "')", sep = "")
-  py_run_string(address)
-  py_run_string("coordinate = (rec['latitude'], rec['longitude'])")
-  result_from_python <- py$coordinate
-  return(result_from_python)
+  rec <- lookup(ip)
+  result <- c(rec$latitude, rec$longitude)
+  return(result)
 }
 
 #' @title Lookup an IP address's Autonomous system name and number
@@ -124,12 +130,9 @@ lookupCoordinateByIP <- function(ip){
 #'
 
 lookupASNByIP <- function(ip){
-  py_run_string("ipgeolocation = ip2locationio.IPGeolocation(configuration)")
-  address = paste("rec = ipgeolocation.lookup('", ip, "')", sep = "")
-  py_run_string(address)
-  py_run_string("as_info = {'as_name': rec['as'], 'as_number': rec['asn']}")
-  result_from_python <- py$as_info
-  return(result_from_python)
+  rec <- lookup(ip)
+  result <- list(as_name = rec$as, as_number = rec$asn)
+  return(result)
 }
 
 #' @title Lookup an IP address's location in text
@@ -145,10 +148,7 @@ lookupASNByIP <- function(ip){
 #'
 
 lookupLocationByIP <- function(ip){
-  py_run_string("ipgeolocation = ip2locationio.IPGeolocation(configuration)")
-  address = paste("rec = ipgeolocation.lookup('", ip, "')", sep = "")
-  py_run_string(address)
-  py_run_string("location = f'{rec['city_name']}, {rec['region_name']}, {rec['country_name']}'")
-  result_from_python <- py$location
-  return(result_from_python)
+  rec <- lookup(ip)
+  result <- paste(rec$city_name, rec$region_name, rec$country_name, sep = ", ")
+  return(result)
 }
